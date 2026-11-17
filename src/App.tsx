@@ -334,8 +334,12 @@ export default function App() {
           onClick={() => setActiveTab('home')}
           className="flex items-center gap-2.5 shrink-0 cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white text-xs font-extrabold shadow-md shadow-indigo-500/25">
-            6/6
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-900 border border-indigo-500/30 flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
+            <img
+              src="./assets/aistudio/AISelect_20261117_193643_Instagram_84b46b6a.jpg"
+              alt="โลโก้ห้อง ม.6/6 APE"
+              className="w-full h-full object-cover"
+            />
           </div>
           <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
             ม.6/6 APE ขุขันธ์
@@ -389,6 +393,15 @@ export default function App() {
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 lg:pt-14">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
                 <div className="lg:col-span-7 space-y-5 sm:space-y-6">
+                  <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl glass-subtle shadow-sm">
+                    <img
+                      src="./assets/aistudio/AISelect_20261117_193643_Instagram_84b46b6a.jpg"
+                      alt="โลโก้ห้อง"
+                      className="w-5 h-5 rounded-lg object-cover"
+                    />
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Gen 5 · M.6/6 APE Khukhan School</span>
+                  </div>
+
                   <p className="text-xs sm:text-sm font-semibold text-indigo-600 dark:text-indigo-400 tracking-wide">
                     โรงเรียนขุขันธ์ · แผนการเรียน วิทย์-คณิต (APE)
                   </p>
