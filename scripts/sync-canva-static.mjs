@@ -89,7 +89,7 @@ function pickBestImageUrl(media, preferSvg = false) {
     const svgFile = media.files.find((f) => f.mimeType === 'image/svg+xml' && f.url);
     if (svgFile) return svgFile.url;
   }
-  const preferredOrder = ['SCREEN_2X', 'SCREEN', 'SCREEN_3X', 'THUMBNAIL'];
+  const preferredOrder = ['SCREEN', 'SCREEN_2X', 'SCREEN_3X', 'THUMBNAIL'];
   for (const q of preferredOrder) {
     const found = media.files.find((f) => f.quality === q && f.url);
     if (found) return found.url;
@@ -281,7 +281,7 @@ function guessExtension(contentType, url) {
   return m ? m[1].toLowerCase() : 'png';
 }
 
-async function cacheAssetLocally(url, colorMap, assetMemo) {
+async function cacheAssetLocally(url, colorMap, assetMemo, targetMediaDir) {
   const key = `${url}|${colorMap ? JSON.stringify(colorMap) : ''}`;
   if (assetMemo.has(key)) return assetMemo.get(key);
 
@@ -297,7 +297,7 @@ async function cacheAssetLocally(url, colorMap, assetMemo) {
       const contentType = res.headers.get('content-type') || 'image/png';
       const ext = guessExtension(contentType, url);
       const fileName = `${hash}.${ext}`;
-      const filePath = path.join(OUTPUT_MEDIA_DIR, fileName);
+      const filePath = path.join(targetMediaDir, fileName);
 
       if (colorMap && contentType.toLowerCase().includes('svg')) {
         let svgText = await res.text();
@@ -388,8 +388,9 @@ async function run() {
     });
   }
 
-  fs.rmSync(OUTPUT_MEDIA_DIR, { recursive: true, force: true });
-  fs.mkdirSync(OUTPUT_MEDIA_DIR, { recursive: true });
+  const tempMediaDir = path.resolve(OUTPUT_DATA_DIR, 'canva-media-tmp');
+  fs.rmSync(tempMediaDir, { recursive: true, force: true });
+  fs.mkdirSync(tempMediaDir, { recursive: true });
 
   const assetMemo = new Map();
   const pages = await Promise.all(
@@ -408,9 +409,11 @@ async function run() {
         }
       }
 
-      const renderedImageUrl = rawThumb
-        ? await cacheAssetLocally(rawThumb, null, assetMemo)
+      const cachedThumbUrl = rawThumb
+        ? await cacheAssetLocally(rawThumb, null, assetMemo, tempMediaDir)
         : null;
+      const hasLocalThumb = Boolean(cachedThumbUrl && cachedThumbUrl.startsWith('./'));
+      const renderedImageUrl = hasLocalThumb ? cachedThumbUrl : null;
 
       const background = extractBackground(rawPage);
       const layers = [];
@@ -426,6 +429,7 @@ async function run() {
         const rotation = typeof el?.E === 'number' ? el.E : undefined;
 
         if (type === 'I') {
+          if (hasLocalThumb) continue;
           const primaryId = el?.a?.B?.I?.A;
           const fallbackId = el?.a?.B?.A?.A;
           const mediaEntry =
@@ -434,7 +438,7 @@ async function run() {
           const colorMap = sanitizeColorMap(el?.a?.B?.C);
           const mediaUrl = pickBestImageUrl(mediaEntry, Boolean(colorMap));
           if (mediaUrl) {
-            const localUrl = await cacheAssetLocally(mediaUrl, colorMap, assetMemo);
+            const localUrl = await cacheAssetLocally(mediaUrl, colorMap, assetMemo, tempMediaDir);
             const cropBox = el?.a?.B?.B;
             layers.push({
               kind: 'image',
@@ -451,6 +455,7 @@ async function run() {
             });
           }
         } else if (type === 'J') {
+          if (hasLocalThumb) continue;
           const frameItem = Array.isArray(el?.b) ? el.b[0] : null;
           const primaryId = frameItem?.B?.B?.I?.A;
           const fallbackId = frameItem?.B?.B?.A?.A;
@@ -460,7 +465,7 @@ async function run() {
           const colorMap = sanitizeColorMap(frameItem?.B?.B?.C);
           const mediaUrl = pickBestImageUrl(mediaEntry, Boolean(colorMap));
           if (mediaUrl) {
-            const localUrl = await cacheAssetLocally(mediaUrl, colorMap, assetMemo);
+            const localUrl = await cacheAssetLocally(mediaUrl, colorMap, assetMemo, tempMediaDir);
             layers.push({
               kind: 'image',
               x,
@@ -477,34 +482,36 @@ async function run() {
           const trimmed = textStr.trim();
           if (trimmed) {
             textValues.push(trimmed);
-            const styleList = Array.isArray(el?.a?.C?.C) ? el.a.C.C : [];
-            const pickStr = (key) => {
-              for (const s of styleList) {
-                if (s && typeof s[key] === 'string' && s[key].trim() !== '') {
-                  return s[key];
+            if (!hasLocalThumb) {
+              const styleList = Array.isArray(el?.a?.C?.C) ? el.a.C.C : [];
+              const pickStr = (key) => {
+                for (const s of styleList) {
+                  if (s && typeof s[key] === 'string' && s[key].trim() !== '') {
+                    return s[key];
+                  }
                 }
-              }
-              return undefined;
-            };
-            const fontSizeNum = parseFloat(pickStr('G') || '36px') || 36;
-            const lineHeightNum = parseFloat(pickStr('Y') || '1.3em') || 1.3;
-            const weightRaw = pickStr('I');
-            const alignRaw = pickStr('c');
-            const colorRaw = pickStr('M');
-            layers.push({
-              kind: 'text',
-              x,
-              y,
-              width,
-              height,
-              rotation,
-              text: trimmed,
-              color: colorRaw || '#000000',
-              fontSize: fontSizeNum,
-              fontWeight: weightRaw === 'bold' ? '700' : weightRaw === 'light' ? '300' : '500',
-              align: alignRaw === 'left' || alignRaw === 'right' ? alignRaw : 'center',
-              lineHeight: lineHeightNum,
-            });
+                return undefined;
+              };
+              const fontSizeNum = parseFloat(pickStr('G') || '36px') || 36;
+              const lineHeightNum = parseFloat(pickStr('Y') || '1.3em') || 1.3;
+              const weightRaw = pickStr('I');
+              const alignRaw = pickStr('c');
+              const colorRaw = pickStr('M');
+              layers.push({
+                kind: 'text',
+                x,
+                y,
+                width,
+                height,
+                rotation,
+                text: trimmed,
+                color: colorRaw || '#000000',
+                fontSize: fontSizeNum,
+                fontWeight: weightRaw === 'bold' ? '700' : weightRaw === 'light' ? '300' : '500',
+                align: alignRaw === 'left' || alignRaw === 'right' ? alignRaw : 'center',
+                lineHeight: lineHeightNum,
+              });
+            }
           }
         }
       }
@@ -537,6 +544,8 @@ async function run() {
   };
 
   fs.mkdirSync(OUTPUT_DATA_DIR, { recursive: true });
+  fs.rmSync(OUTPUT_MEDIA_DIR, { recursive: true, force: true });
+  fs.renameSync(tempMediaDir, OUTPUT_MEDIA_DIR);
   fs.writeFileSync(OUTPUT_JSON_PATH, JSON.stringify(payload), 'utf8');
   console.log(`Synced ${pages.length} pages and ${assetMemo.size} static media files to public/data/`);
 }

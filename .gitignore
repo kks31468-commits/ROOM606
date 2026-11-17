@@ -7,5 +7,5 @@ coverage/
 .env*
 !.env.example
 /data/
-/public/data/
+/public/data/canva-media-tmp/
 /dist-gas/

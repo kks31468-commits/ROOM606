@@ -29,13 +29,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
       - name: Sync latest Canva pages and media
         run: npm run sync:canva
+        continue-on-error: true
 
       - name: Build static production bundle
         run: npm run build
