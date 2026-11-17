@@ -1,0 +1,6 @@
+{
+  "name": "M.6/6 Science-Math APE - Khukhan School",
+  "description": "Official website for Math-Science (APE) Class M.6/6, Khukhan School, featuring student roster, class schedule, activities, memories, and exam countdown.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
